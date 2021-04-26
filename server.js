@@ -29,14 +29,14 @@ app.use(passport.initialize());
 
 var router = express.Router();
 
-mongoose.Promise = global.Promise;
+/*mongoose.Promise = global.Promise;
 const uri = process.env.DB;
 
 mongoose.connect(uri, {useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true}).
 catch(err => console.log(err));
 
 console.log("connected to mongo atlas (users)");
-
+*/
 // function getJSONObjectForMovie(req) {
 //     var json = {
 //         body: "No body"
@@ -77,7 +77,8 @@ router.post('/signin', function (req, res) {
     var userNew = new User();
     userNew.username = req.body.username;
     userNew.password = req.body.password;
-    var ipAddress = request.getHeader("Remote_Addr");
+    var ipAddress = req.socket.remoteAddress;
+
 
     console.log(userNew);
 
@@ -91,14 +92,16 @@ router.post('/signin', function (req, res) {
             if (isMatch) {
                 var userToken = { id: user.id, username: user.username };
                 var token = jwt.sign(userToken, process.env.SECRET_KEY);
-                res.json({success: true, token: 'JWT ' + token});
-                user.findOneAndUpdate({username: req.body.username}, {recent_IP: ipAddress}, function(err, user) {
+
+                User.findOneAndUpdate({username: req.body.username}, {recent_IP: ipAddress}, function(err, user) {
                     if(err){
                         res.status(403).json({success:false, message: "Could not update ip"});
                     }else{
                         res.status(200).json({success: true, message: "Updated ip"});
                     }
                 })
+
+                res.json({success: true, token: 'JWT ' + token});
 
                 }
             else {
@@ -107,6 +110,61 @@ router.post('/signin', function (req, res) {
         })
     })
 });
+
+//get and post for both items and transaction
+router.route('/transaction')
+        .post(authJwtController.isAuthenticated, function (req, res) {
+            // post function
+            var transaction = new Transaction();
+
+            transaction.id = req.body.id;
+            transaction.cart = req.body.cart;
+            transaction.date = req.body.date;
+            transaction.ip = req.body.ip;
+
+            transaction.save(function (err) {
+                if (err) {
+                    return res.json(err);
+                }
+                res.json({success: true, msg: 'Transaction saved.'});
+            })
+
+        })
+
+
+        .get(authJwtController.isAuthenticated, function (req, res) {
+            Transaction.find({}, function(err, transaction) {
+                res.json({Transaction: transaction});
+            })
+        });
+
+
+router.route('/item')
+    .post(function (req, res) {
+        // post function
+        var item = new Item();
+
+        item.item_name = req.body.item_name;
+        item.price = req.body.price;
+        item.country_blacklist = req.body.country_blacklist;
+        item.item_id = req.body.item_id;
+
+        item.save(function (err) {
+            if (err) {
+                return res.json(err);
+            }
+            res.json({success: true, msg: 'Item saved.'});
+        })
+
+    })
+
+
+    .get(function (req, res) {
+        Item.find({}, function(err, item) {
+            res.json({Transaction: item});
+        })
+    });
+
 
 // // GET movies gets all the movies in the database
 // router.get('/movies', (req, res) => {
